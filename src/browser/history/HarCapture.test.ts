@@ -3,6 +3,7 @@ import { expect, it } from "vitest";
 import {
   historicalHar,
   harWithContainerLookalikes,
+  webInspectorHar,
 } from "../../../tests/fixtures/historicalHar.js";
 import { decodeCaptureText } from "./CaptureJson.js";
 import { decodeHarCapture } from "./HarCapture.js";
@@ -584,12 +585,55 @@ it.each(["[2001:db8::1]", "[::1]", "[::ffff:192.0.2.1]"])(
   },
 );
 
+it("retains Chrome DevTools WebInspector bracketed IPv6 and empty serverIPAddress", () => {
+  const decoded = decodeHarCapture(JSON.stringify(webInspectorHar()), []);
+  const [bracketed, empty] = decoded.records;
+  expect(bracketed?.reported).toMatchObject({
+    serverIPAddress: "[2a06:98c1:310b::ac40:92d7]",
+  });
+  expect(bracketed?.limitations).toContain(
+    "This capture declares Chrome DevTools WebInspector 537.36 and reports bracketed IPv6 serverIPAddress. Original spellings are retained; brackets were removed only from valid IPv6 values in the validation copy. Producer declarations are not authenticated.",
+  );
+  expect(empty?.reported).toMatchObject({ serverIPAddress: "" });
+  expect(empty?.limitations).toContain(
+    "This capture declares Chrome DevTools WebInspector 537.36 and reports an empty serverIPAddress, meaning the producer recorded no remote address. The empty string is retained; the optional field was omitted only from the validation copy. Producer declarations are not authenticated.",
+  );
+  expect(
+    empty?.limitations.some((limitation) =>
+      limitation.includes("bracketed IPv6"),
+    ),
+  ).toBe(false);
+});
+
+it.each([
+  { name: "Playwright", version: "1.58.2" },
+  { name: "WebInspector", version: "537.37" },
+  { name: "rea-source-owned-fixture", version: "1" },
+])(
+  "rejects empty serverIPAddress outside the WebInspector 537.36 profile: $name $version",
+  ({ name, version }) => {
+    const fixture = webInspectorHar();
+    expect(() =>
+      decodeHarCapture(
+        JSON.stringify({
+          log: { ...fixture.log, creator: { name, version } },
+        }),
+        [],
+      ),
+    ).toThrow("HAR schema validation failed");
+  },
+);
+
 it.each([
   { name: "other", version: "1.58.2", address: "[2001:db8::1]" },
   { name: "Playwright", version: "1.58.1", address: "[2001:db8::1]" },
   { name: "Playwright", version: "1.58.2", address: "[192.0.2.1]" },
   { name: "Playwright", version: "1.58.2", address: "[2001:db8::1]:443" },
   { name: "Playwright", version: "1.58.2", address: "[fe80::1%eth0]" },
+  { name: "WebInspector", version: "537.36", address: "[192.0.2.1]" },
+  { name: "WebInspector", version: "537.36", address: "[2001:db8::1]:443" },
+  { name: "WebInspector", version: "537.36", address: "[fe80::1%eth0]" },
+  { name: "WebInspector", version: "537.36", address: " " },
 ])(
   "rejects unrecognized bracketed HAR address input: $name $version $address",
   ({ name, version, address }) => {

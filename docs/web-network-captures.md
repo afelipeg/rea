@@ -82,6 +82,16 @@ REA preserves the original spelling in reported Evidence and removes brackets
 only from its validation copy, only for this declared producer and a valid IPv6
 literal. Invalid addresses, bracketed IPv4, ports and zone identifiers remain
 validation failures. Producer declarations do not authenticate origin.
+Chrome DevTools "Export HAR", declaring `log.creator` `WebInspector` `537.36`,
+forwards the same bracketed `remoteIPAddress` and receives the same treatment.
+Chrome freezes that WebKit version string, so the profile names the exporter
+rather than a Chrome release. This exporter also writes `serverIPAddress: ""`
+when it recorded no remote address, for example for cached or service-worker
+responses. REA retains the empty string in reported Evidence as the producer's
+statement that no address was recorded, and omits the optional field only from
+its validation copy; it does not invent an address. Each adapted record carries
+a limitation naming the adaptation. Empty addresses from any other producer,
+and whitespace-only addresses, remain validation failures.
 
 Native mitmproxy decoding requires a caller-supplied **mitmdump 12.2.3 on
 Linux**. Set its absolute executable path:

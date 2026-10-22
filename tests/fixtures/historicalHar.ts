@@ -360,3 +360,75 @@ export const environmentStateHar = () => {
   }));
   return har;
 };
+
+/**
+ * Minimal HAR 1.2 shaped like Chrome DevTools "Export HAR (sanitized)": a bracketed IPv6
+ * `serverIPAddress` forwarded from Chromium's `remoteIPAddress`, and an empty one for a
+ * response with no remote address. Hosts and bodies are synthetic.
+ */
+export const webInspectorHar = () => {
+  const entry = (url: string, serverIPAddress: string, fromCache: boolean) => ({
+    _connectionId: fromCache ? "" : "41",
+    _initiator: { type: "other" },
+    _priority: "VeryHigh",
+    _resourceType: "document",
+    cache: {},
+    ...(fromCache ? {} : { connection: "443" }),
+    pageref: "page_1",
+    request: {
+      method: "GET",
+      url,
+      httpVersion: "http/2.0",
+      headers: [{ name: "accept", value: "text/html" }],
+      queryString: [],
+      cookies: [],
+      headersSize: -1,
+      bodySize: 0,
+    },
+    response: {
+      status: 200,
+      statusText: "",
+      httpVersion: "http/2.0",
+      headers: [{ name: "content-type", value: "text/html" }],
+      cookies: [],
+      content: { size: 5, mimeType: "text/html", text: "probe" },
+      redirectURL: "",
+      headersSize: -1,
+      bodySize: fromCache ? 0 : 5,
+      _transferSize: fromCache ? 0 : 120,
+      _error: null,
+      ...(fromCache ? { _fetchedViaServiceWorker: false } : {}),
+    },
+    serverIPAddress,
+    startedDateTime: "2026-10-20T12:00:00.000Z",
+    time: 12.5,
+    timings: {
+      blocked: 1.2,
+      dns: -1,
+      ssl: -1,
+      connect: -1,
+      send: 0.1,
+      wait: 10,
+      receive: 1.2,
+      _blocked_queueing: 0.8,
+    },
+  });
+  return {
+    log: {
+      version: "1.2",
+      creator: { name: "WebInspector", version: "537.36" },
+      pages: [
+        {
+          startedDateTime: "2026-10-20T12:00:00.000Z",
+          id: "page_1",
+          title: "https://ipv6.example/",
+          pageTimings: { onContentLoad: 20, onLoad: 30 },
+        },
+      ],
+      entries: [
+        entry("https://ipv6.example/", "[2a06:98c1:310b::ac40:92d7]", false),
+        entry("https://ipv6.example/cached", "", true),
+      ],
+    },
+  };
+};

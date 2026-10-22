@@ -45,6 +45,7 @@ const cli = async (
 import {
   historicalHar,
   harWithContainerLookalikes,
+  webInspectorHar,
 } from "../../fixtures/historicalHar.js";
 
 it("preserves opaque HAR container fields through CLI and MCP", async () => {
@@ -201,6 +202,39 @@ it("retains Playwright IPv6 spelling through public CLI and MCP workflows", asyn
       limitation.includes("bracketed IPv6 serverIPAddress"),
     ),
   ).toBe(true);
+  expect(await readFile(path, "utf8")).toBe(original);
+});
+
+it("retains Chrome DevTools WebInspector addresses through public CLI and MCP workflows", async () => {
+  const root = await createTestTempDirectory("rea-har-webinspector-");
+  const path = join(root, "capture.har");
+  const original = JSON.stringify(webInspectorHar());
+  await writeFile(path, original);
+  const { call } = await connectLocalToolsMcp();
+  const fromCli = await cli(path, "har");
+  expect(fromCli.ok, fromCli.stdout).toBe(true);
+  const cliEvidence = parseEvidence(JSON.parse(fromCli.stdout));
+  const response = await call("inspect_web_network_capture", {
+    capture_path: path,
+    format: "har",
+  });
+  expect(response.isError, JSON.stringify(response)).not.toBe(true);
+  const mcpEvidence = parseEvidence(response.structuredContent);
+  expect(mcpEvidence.evidence_id).toBe(cliEvidence.evidence_id);
+  expect(mcpEvidence.normalized_result).toEqual(cliEvidence.normalized_result);
+  const capture = webNetworkCaptureSchema.parse(cliEvidence.normalized_result);
+  expect(capture.records.map((record) => record.reported)).toMatchObject([
+    { serverIPAddress: "[2a06:98c1:310b::ac40:92d7]" },
+    { serverIPAddress: "" },
+  ]);
+  expect(
+    capture.records.map(
+      (record) =>
+        record.limitations.filter((limitation) =>
+          limitation.includes("WebInspector 537.36"),
+        ).length,
+    ),
+  ).toEqual([1, 1]);
   expect(await readFile(path, "utf8")).toBe(original);
 });
 
